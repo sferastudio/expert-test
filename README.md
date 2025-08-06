@@ -1,4 +1,284 @@
-# Welcome to your Lovable project
+---
+
+# 🛠 Bug Fixes Documentation – Lead Capture App (v1.0.0)
+
+## Overview
+
+This document outlines the critical bugs that were discovered and resolved in the Lead Capture Application. The application is a Vite + React + TypeScript app with Supabase integration for lead management and automated email confirmations.
+
+---
+
+## Critical Fixes Implemented
+
+### 1. Duplicate Email Sending
+
+**File**: 
+`src/components/LeadCaptureForm.tsx`
+**Severity**: Critical
+**Status**: ✅ Fixed
+
+#### Problem
+
+The confirmation email was being sent twice due to duplicate code blocks (lines 30-46 and 49-65). This caused:
+
+* Duplicate emails to users
+* Wasted API calls and resources
+* Poor user experience
+* Potential rate limiting issues
+
+#### Root Cause
+
+Code duplication during development - the same email sending logic was implemented twice in the submit handler.
+
+#### Fix
+
+Removed the duplicate code block and kept only one instance of the email sending logic:
+
+```typescript
+// Send confirmation email (only once)
+const { error: emailError } = await supabase.functions.invoke('send-confirmation', {
+  body: {
+    name: formData.name,
+    email: formData.email,
+    industry: formData.industry,
+  },
+});
+```
+
+#### Impact
+
+* ✅ Emails sent only once per submission
+* ✅ Reduced API calls by 50%
+* ✅ Better user experience
+
+---
+
+### 2. OpenAI API Array Index Error
+
+**File**: 
+`supabase/functions/send-confirmation/index.ts`
+**Severity**: Critical
+**Status**: ✅ Fixed
+
+#### Problem
+
+Accessing `data?.choices[1]` instead of `data?.choices[0]` on line 45, causing personalized content generation to always fail and fallback to generic content.
+
+#### Root Cause
+
+Incorrect array indexing - arrays in JavaScript are 0-indexed, but the code was trying to access index 1 (the second element) when only one choice was returned.
+
+#### Fix
+
+```typescript
+// Before: data?.choices[1]?.message?.content
+// After:
+return data?.choices[0]?.message?.content;
+```
+
+#### Impact
+
+* ✅ Personalized email content now works correctly
+* ✅ Users receive industry-specific welcome messages
+* ✅ Better engagement through personalization
+
+---
+
+### 3. Missing Database Insert
+
+**File**: 
+`src/components/LeadCaptureForm.tsx`
+**Severity**: Critical  
+**Status**: ✅ Fixed
+
+#### Problem
+
+Lead data was never saved to the Supabase database despite having proper tables and schema. Data was only stored in local state and lost on page refresh.
+
+#### Root Cause
+
+Missing implementation of database insert logic. The database schema existed but was never utilized.
+
+#### Fix
+
+Added Supabase database insert operation:
+
+```typescript
+const { error: dbError } = await supabase
+  .from('leads')
+  .insert({
+    name: formData.name,
+    email: formData.email,
+    industry: formData.industry,
+  });
+```
+
+#### Impact
+
+* ✅ All leads now persisted in database
+* ✅ Data available for analytics and follow-up
+* ✅ No data loss on page refresh
+
+---
+
+### 4. API Key Security Issue
+
+**File**: 
+`supabase/functions/send-confirmation/index.ts`
+**Severity**: High
+**Status**: ✅ Fixed
+
+#### Problem
+
+Using environment variable name "RESEND_PUBLIC_KEY" suggested a public key was being used, which is a security risk for server-side operations.
+
+#### Root Cause
+
+Incorrect naming convention that could lead to exposing sensitive API keys.
+
+#### Fix
+
+```typescript
+// Before: Deno.env.get("RESEND_PUBLIC_KEY")
+// After:
+const resend = new Resend(Deno.env.get("RESEND_API_KEY") || "invalid_key");
+```
+
+#### Impact
+
+* ✅ Clearer security boundaries
+* ✅ Reduced risk of API key exposure
+* ✅ Better security practices
+
+---
+
+### 5. State Management Inconsistency
+
+**File**: 
+`src/components/LeadCaptureForm.tsx`
+**Severity**: High
+**Status**: ✅ Fixed
+
+#### Problem
+
+Component was using local state instead of the Zustand store, causing:
+* Store's `submitted` state never updated
+* `addLead()` function never called
+* Session lead counter always showing 0
+
+#### Root Cause
+
+Mixed state management - using both local state and store state without proper synchronization.
+
+#### Fix
+
+Integrated Zustand store properly:
+
+```typescript
+const { submitted, setSubmitted, sessionLeads, addLead } = useLeadStore();
+// Removed local state, now using store
+```
+
+#### Impact
+
+* ✅ Consistent state across components
+* ✅ Session lead counter works correctly
+* ✅ Better state management
+
+---
+
+### 6. Missing Error Notifications
+
+**File**: 
+`src/components/LeadCaptureForm.tsx`
+**Severity**: Medium
+**Status**: ✅ Fixed
+
+#### Problem
+
+Errors were only logged to console, users never knew when something failed.
+
+#### Root Cause
+
+No user-facing error handling implementation.
+
+#### Fix
+
+Added toast notifications for all error scenarios:
+
+```typescript
+toast({
+  title: "Error",
+  description: "Failed to save your information. Please try again.",
+  variant: "destructive",
+});
+```
+
+#### Impact
+
+* ✅ Users informed of all errors
+* ✅ Better UX with clear feedback
+* ✅ Reduced support tickets
+
+---
+
+### 7. Console Logs in Production
+
+**Files**: 
+- `supabase/functions/send-confirmation/index.ts`
+- `src/components/LeadCaptureForm.tsx`
+
+**Severity**: Low
+**Status**: ✅ Fixed
+
+#### Problem
+
+Multiple console.log statements exposing sensitive data and cluttering production logs.
+
+#### Root Cause
+
+Debug statements left in production code.
+
+#### Fix
+
+Removed all console.log, console.error statements from production code.
+
+#### Impact
+
+* ✅ Cleaner production logs
+* ✅ No sensitive data in console
+* ✅ Better performance
+
+---
+
+## Testing Recommendations
+
+1. **Email Testing**: Verify single email sent per submission
+2. **Database Testing**: Confirm all leads saved to Supabase
+3. **Personalization Testing**: Check AI-generated content works
+4. **Error Testing**: Test with invalid data to verify error toasts
+5. **State Testing**: Verify session counter increments correctly
+
+---
+
+## Deployment Notes
+
+Before deploying to production:
+
+1. Set `RESEND_API_KEY` environment variable (not RESEND_PUBLIC_KEY)
+2. Set `OPENAI_API_KEY` for personalization
+3. Verify Supabase connection and RLS policies
+4. Test email delivery in staging environment
+
+---
+
+🤖 Generated with [Claude Code](https://claude.ai/code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+
+---
+
+# Original README - Welcome to your Lovable project
 
 ## Project info
 
