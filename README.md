@@ -251,6 +251,132 @@ Removed all console.log, console.error statements from production code.
 
 ---
 
+### 8. Exposed API Keys in Client Code
+
+**File**: 
+`src/integrations/supabase/client.ts`
+**Severity**: High
+**Status**: ✅ Fixed
+
+#### Problem
+
+Supabase URL and anon key were hardcoded in client-side code instead of using environment variables.
+
+#### Root Cause
+
+Hardcoded values for quick development without proper environment configuration.
+
+#### Fix
+
+```typescript
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || "fallback_url";
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "fallback_key";
+```
+
+#### Impact
+
+* ✅ Better security practices
+* ✅ Easier configuration management
+* ✅ Environment-specific deployments
+
+---
+
+### 9. Wide-Open CORS Configuration
+
+**File**: 
+`supabase/functions/send-confirmation/index.ts`
+**Severity**: High
+**Status**: ✅ Fixed
+
+#### Problem
+
+CORS allowed all origins (`*`), enabling any website to call the email function.
+
+#### Root Cause
+
+Overly permissive CORS for development convenience.
+
+#### Fix
+
+```typescript
+"Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://lovable.dev"
+```
+
+#### Impact
+
+* ✅ Prevents unauthorized function calls
+* ✅ Reduces spam risk
+* ✅ Better security posture
+
+---
+
+### 10. Missing Email Uniqueness Constraint
+
+**File**: 
+`supabase/migrations/20250806000000-add-email-unique-constraint.sql`
+**Severity**: High  
+**Status**: ✅ Fixed
+
+#### Problem
+
+No database constraint preventing duplicate email submissions.
+
+#### Root Cause
+
+Missing database constraint in initial schema design.
+
+#### Fix
+
+Added unique constraint and improved RLS policies:
+
+```sql
+ALTER TABLE public.leads 
+ADD CONSTRAINT leads_email_unique UNIQUE (email);
+```
+
+#### Impact
+
+* ✅ Prevents duplicate email entries
+* ✅ Better data integrity
+* ✅ More restrictive read access
+
+---
+
+### 11. Input Sanitization
+
+**File**: 
+`src/components/LeadCaptureForm.tsx`
+**Severity**: Medium
+**Status**: ✅ Fixed
+
+#### Problem
+
+No server-side input sanitization before database insertion.
+
+#### Root Cause
+
+Relying solely on client-side validation.
+
+#### Fix
+
+Added input sanitization with length limits:
+
+```typescript
+const sanitizedData = {
+  name: formData.name.trim().slice(0, 100),
+  email: formData.email.trim().toLowerCase().slice(0, 255),
+  industry: formData.industry.trim().slice(0, 50),
+};
+```
+
+#### Impact
+
+* ✅ Prevents potential injection attacks
+* ✅ Enforces data length limits
+* ✅ Consistent data formatting
+
+---
+
 ## Testing Recommendations
 
 1. **Email Testing**: Verify single email sent per submission
@@ -265,10 +391,25 @@ Removed all console.log, console.error statements from production code.
 
 Before deploying to production:
 
-1. Set `RESEND_API_KEY` environment variable (not RESEND_PUBLIC_KEY)
-2. Set `OPENAI_API_KEY` for personalization
-3. Verify Supabase connection and RLS policies
-4. Test email delivery in staging environment
+1. **Environment Variables (Client-side)**:
+   - Set `VITE_SUPABASE_URL` in your .env file
+   - Set `VITE_SUPABASE_ANON_KEY` in your .env file
+
+2. **Supabase Edge Function Variables**:
+   - Set `RESEND_API_KEY` (not RESEND_PUBLIC_KEY)
+   - Set `OPENAI_API_KEY` for personalization
+   - Set `ALLOWED_ORIGIN` to your production domain
+
+3. **Database Setup**:
+   - Run all migration files including the new unique constraint
+   - Verify RLS policies are appropriate for your use case
+   - Test the email uniqueness constraint
+
+4. **Security Checklist**:
+   - Ensure CORS is restricted to your domain
+   - Verify all API keys are using environment variables
+   - Test email delivery in staging environment
+   - Confirm database policies prevent unauthorized access
 
 ---
 

@@ -28,14 +28,17 @@ export const LeadCaptureForm = () => {
 
     if (errors.length === 0) {
       try {
+        // Sanitize input data before database insertion
+        const sanitizedData = {
+          name: formData.name.trim().slice(0, 100),
+          email: formData.email.trim().toLowerCase().slice(0, 255),
+          industry: formData.industry.trim().slice(0, 50),
+        };
+
         // Save to database
         const { error: dbError } = await supabase
           .from('leads')
-          .insert({
-            name: formData.name,
-            email: formData.email,
-            industry: formData.industry,
-          });
+          .insert(sanitizedData);
 
         if (dbError) {
           toast({

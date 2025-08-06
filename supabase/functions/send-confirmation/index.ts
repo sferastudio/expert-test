@@ -5,7 +5,7 @@ import { Resend } from "npm:resend@2.0.0";
 const resend = new Resend(Deno.env.get("RESEND_API_KEY") || "invalid_key");
 
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://lovable.dev",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
