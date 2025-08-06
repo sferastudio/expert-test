@@ -12,6 +12,7 @@ import { useState } from 'react';
 export const LeadCaptureForm = () => {
   const [formData, setFormData] = useState({ name: '', email: '', industry: '' });
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { submitted, setSubmitted, sessionLeads, addLead } = useLeadStore();
   const { toast } = useToast();
 
@@ -23,10 +24,15 @@ export const LeadCaptureForm = () => {
   };
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (isSubmitting) return;
+    
     const errors = validateLeadForm(formData);
     setValidationErrors(errors);
 
     if (errors.length === 0) {
+      setIsSubmitting(true);
       try {
         // Sanitize input data before database insertion
         const sanitizedData = {
@@ -86,6 +92,8 @@ export const LeadCaptureForm = () => {
           description: "Something went wrong. Please try again.",
           variant: "destructive",
         });
+      } finally {
+        setIsSubmitting(false);
       }
     }
   };
@@ -223,10 +231,20 @@ export const LeadCaptureForm = () => {
 
           <Button
             type="submit"
-            className="w-full h-12 bg-gradient-primary text-primary-foreground font-semibold rounded-lg shadow-glow hover:shadow-[0_0_60px_hsl(210_100%_60%/0.3)] transition-smooth transform hover:scale-[1.02]"
+            disabled={isSubmitting}
+            className="w-full h-12 bg-gradient-primary text-primary-foreground font-semibold rounded-lg shadow-glow hover:shadow-[0_0_60px_hsl(210_100%_60%/0.3)] transition-smooth transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
-            <CheckCircle className="w-5 h-5 mr-2" />
-            Get Early Access
+            {isSubmitting ? (
+              <>
+                <div className="w-5 h-5 mr-2 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-5 h-5 mr-2" />
+                Get Early Access
+              </>
+            )}
           </Button>
         </form>
 
